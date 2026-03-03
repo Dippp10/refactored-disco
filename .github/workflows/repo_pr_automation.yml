@@ -1,0 +1,63 @@
+name: Repo + PR Automation
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  automate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install jq -y
+
+      - name: Automation Script
+        env:
+          TOKEN: ${{ secrets.GH_TOKEN }}
+          USERNAME: ${{ github.repository_owner }}
+          TARGET_REPO: owner/repository   # external repo
+        run: |
+
+          for i in {1..30}
+          do
+            NEW_REPO="auto-repo-$(date +%s)-$i"
+
+            echo "Creating repository $NEW_REPO"
+
+            curl -s -X POST https://api.github.com/user/repos \
+            -H "Authorization: token $TOKEN" \
+            -d "{\"name\":\"$NEW_REPO\",\"private\":false}"
+
+            sleep 5
+
+            echo "Starring external repository"
+
+            curl -s -X PUT https://api.github.com/user/starred/$TARGET_REPO \
+            -H "Authorization: token $TOKEN"
+
+            echo "Forking external repository"
+
+            curl -s -X POST https://api.github.com/repos/$TARGET_REPO/forks \
+            -H "Authorization: token $TOKEN"
+
+            sleep 15
+
+            echo "Adding file to fork"
+
+            CONTENT=$(echo "Automated contribution $(date)" | base64)
+
+            curl -s -X PUT https://api.github.com/repos/$USERNAME/$(basename $TARGET_REPO)/contents/update.txt \
+            -H "Authorization: token $TOKEN" \
+            -d "{\"message\":\"automation update\",\"content\":\"$CONTENT\"}"
+
+            echo "Creating Pull Request"
+
+            curl -s -X POST https://api.github.com/repos/$TARGET_REPO/pulls \
+            -H "Authorization: token $TOKEN" \
+            -d "{\"title\":\"Automated contribution\",\"head\":\"$USERNAME:main\",\"base\":\"main\"}"
+
+            sleep 10
+
+          done
