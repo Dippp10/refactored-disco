@@ -19,8 +19,8 @@ jobs:
           USERNAME: ${{ github.repository_owner }}
         run: |
 
-          TARGET_OWNER="vamansworld786-arch"
-          TARGET_REPO="blahblahblah"
+          TARGET_OWNER="Dippp10"
+          TARGET_REPO="refactored-disco"
 
           echo "Forking repository"
           curl -L -X POST https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/forks \
