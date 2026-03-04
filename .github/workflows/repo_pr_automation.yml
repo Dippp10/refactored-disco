@@ -22,6 +22,14 @@ jobs:
           TARGET_OWNER="vamansworld786-arch"
           TARGET_REPO="blahblahblah"
 
+          echo "Forking repository"
+          curl -L -X POST https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/forks \
+          -H "Authorization: Bearer $TOKEN" \
+          -H "Accept: application/vnd.github+json"
+
+          echo "Waiting for fork to be ready"
+          sleep 40
+
           for i in {1..30}
           do
 
@@ -34,53 +42,34 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           -d "{\"name\":\"$NEW_REPO\",\"private\":false}"
 
-          sleep 5
-
           echo "Starring target repository"
 
-          STAR_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -L -X PUT \
+          curl -L -X PUT \
           -H "Authorization: Bearer $TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          https://api.github.com/user/starred/$TARGET_OWNER/$TARGET_REPO)
-
-          echo "Star response code: $STAR_RESPONSE"
-
-          echo "Forking repository"
-
-          curl -L -X POST https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/forks \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Accept: application/vnd.github+json"
-
-          echo "Waiting for fork"
-          sleep 40
-
-          echo "Adding change to fork"
+          https://api.github.com/user/starred/$TARGET_OWNER/$TARGET_REPO
 
           CONTENT=$(echo "Automated update $(date)" | base64 -w 0)
 
-          curl -L -X PUT https://api.github.com/repos/$USERNAME/$TARGET_REPO/contents/update.txt \
+          curl -L -X PUT https://api.github.com/repos/$USERNAME/$TARGET_REPO/contents/update-$i.txt \
           -H "Authorization: Bearer $TOKEN" \
           -H "Accept: application/vnd.github+json" \
           -d "{\"message\":\"automation commit\",\"content\":\"$CONTENT\",\"branch\":\"main\"}"
 
-          echo "Creating pull request"
-
           PR=$(curl -s -L -X POST https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/pulls \
           -H "Authorization: Bearer $TOKEN" \
           -H "Accept: application/vnd.github+json" \
-          -d "{\"title\":\"Automated PR\",\"head\":\"$USERNAME:main\",\"base\":\"main\"}")
+          -d "{\"title\":\"Automated PR $i\",\"head\":\"$USERNAME:main\",\"base\":\"main\"}")
 
           PR_NUMBER=$(echo $PR | jq -r .number)
 
-          echo "Pull request number: $PR_NUMBER"
-
-          echo "Auto merging PR"
+          echo "PR number: $PR_NUMBER"
 
           curl -L -X PUT https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/pulls/$PR_NUMBER/merge \
           -H "Authorization: Bearer $TOKEN" \
           -H "Accept: application/vnd.github+json" \
           -d '{"merge_method":"merge"}'
 
-          sleep 10
+          sleep 3
 
           done
