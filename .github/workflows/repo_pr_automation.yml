@@ -1,75 +1,33 @@
-name: Repo PR Automation
+name: Create and Star Repositories Safely
 
 on:
   schedule:
-    - cron: '0 */4 * * *'
-  workflow_dispatch:
+    - cron: '0 */4 * * *'  # Runs every 4 hours
+  workflow_dispatch:      # Manual trigger if needed
 
 jobs:
-  automate:
+  create_and_star:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN2 }}
+      USERNAME: Dippp10
+      REPOS_PER_INTERVAL: 30
 
     steps:
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install jq -y
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq curl
 
-      - name: Automation script
-        env:
-          TOKEN: ${{ secrets.GH_TOKEN2 }}
-          USERNAME: ${{ github.repository_owner }}
+      - name: Create and star repositories
         run: |
-
-          TARGET_OWNER="Dippp10"
-          TARGET_REPO="refactored-disco"
-
-          echo "Forking repository"
-          curl -L -X POST https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/forks \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Accept: application/vnd.github+json"
-
-          echo "Waiting for fork to be ready"
-          sleep 40
-
-          for i in {1..30}
-          do
-
-          NEW_REPO="auto-repo-$(date +%s)-$i"
-
-          echo "Creating repository $NEW_REPO"
-
-          curl -L -X POST https://api.github.com/user/repos \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          -d "{\"name\":\"$NEW_REPO\",\"private\":false}"
-
-          echo "Starring target repository"
-
-          curl -L -X PUT \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/user/starred/$TARGET_OWNER/$TARGET_REPO
-
-          CONTENT=$(echo "Automated update $(date)" | base64 -w 0)
-
-          curl -L -X PUT https://api.github.com/repos/$USERNAME/$TARGET_REPO/contents/update-$i.txt \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          -d "{\"message\":\"automation commit\",\"content\":\"$CONTENT\",\"branch\":\"main\"}"
-
-          PR=$(curl -s -L -X POST https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/pulls \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          -d "{\"title\":\"Automated PR $i\",\"head\":\"$USERNAME:main\",\"base\":\"main\"}")
-
-          PR_NUMBER=$(echo $PR | jq -r .number)
-
-          echo "PR number: $PR_NUMBER"
-
-          curl -L -X PUT https://api.github.com/repos/$TARGET_OWNER/$TARGET_REPO/pulls/$PR_NUMBER/merge \
-          -H "Authorization: Bearer $TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          -d '{"merge_method":"merge"}'
-
-          sleep 3
-
+          for i in $(seq 1 $REPOS_PER_INTERVAL); do
+            REPO_NAME="auto-repo-$(date +%s)-$i"
+            curl -H "Authorization: token $GH_TOKEN" \
+                 -d "{\"name\":\"$REPO_NAME\",\"auto_init\":true}" \
+                 https://api.github.com/user/repos
+            # Star the repo
+            curl -X PUT -H "Authorization: token $GH_TOKEN" \
+                 -H "Content-Length: 0" \
+                 https://api.github.com/user/starred/$USERNAME/$REPO_NAME
+            # Random delay 10–30 seconds
+            sleep $((RANDOM % 21 + 10))
           done
